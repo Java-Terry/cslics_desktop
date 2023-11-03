@@ -26,6 +26,8 @@ import numpy as np
 import os
 import time
 from coral_spawn_counter.RedCircle_Detector import RedCircle_Detector
+from coral_spawn_counter.Surface_Detector import Surface_Detector
+from coral_spawn_counter.SubSurface_Detector import SubSurface_Detector
 
 
 def post_callback(request):
@@ -231,7 +233,7 @@ def capture_done(job):
         # request = picam2.wait(job)
         new_img = request.make_array("main")
         # new_cv_img = cv2.cvtColor(new_img, cv2.COLOR_RGB2BGR)
-        print(f'new_cv_img shape: {new_img.shape}')
+        # print(f'new_cv_img shape: {new_img.shape}')
         metadata = request.get_metadata()
         request.release()
         img_name = pic_tab.filename.text() if pic_tab.filename.text() else 'test' + '.' + pic_tab.filetype.currentText()
@@ -1057,12 +1059,16 @@ class picTab(QWidget):
         # red circle detector parameters
         meta_dir = '/home/cslics04/cslics_ws/src/coral_spawn_imager'
         save_dir = '/home/cslics04/images/desktop_output'
+
         os.makedirs(save_dir, exist_ok=True)
         self.detector = RedCircle_Detector(meta_dir=meta_dir, save_dir=save_dir)
         
         # self.detector = 0 # import red circle detector for now from coral_spawn_counter
+        # TODO moving bars for detection parameters
         self.parameter = 0 # some parameter input
         
+        #  TODO some way of showing the detected image
+        # TODO expose getters, setters to bars in GUI (might necessitate new tab)
 
 
 
@@ -1212,7 +1218,7 @@ class picTab(QWidget):
         self.count_button.setEnabled(False)
 
         # global image_package
-        print(image_package)
+        # print(image_package)
         self.image = image_package['image']
         self.metadata = image_package['metadata']
         self.image_name = image_package['name']
@@ -1224,10 +1230,17 @@ class picTab(QWidget):
         print('detecting in image')
         pred = self.detector.detect(self.image)
         print('saving detections')
-        self.detector.save_image_predictions(pred, self.image, self.image_name, self.detector.save_dir, self.detector.class_colours, self.detector.classes)
-        self.detector.save_text_predictions(pred, self.image_name, self.detector.save_dir, self.detector.classes)
+        img_save_dir = os.path.join(self.detector.save_dir, 'detection_images')
+        txt_save_dir = os.path.join(self.detector.save_dir, 'detection_txtfiles')
+        os.makedirs(img_save_dir, exist_ok=True)
+        os.makedirs(txt_save_dir, exist_ok=True)
 
+        self.detector.save_image_predictions(pred, self.image, self.image_name, img_save_dir, self.detector.class_colours, self.detector.classes)
+        self.detector.save_text_predictions(pred, self.image_name, txt_save_dir, self.detector.classes)
+
+        print('count complete')
         self.count_button.setEnabled(True)
+        
 
 
 def toggle_hidden_controls():

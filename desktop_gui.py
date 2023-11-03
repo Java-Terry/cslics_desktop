@@ -1062,6 +1062,7 @@ class picTab(QWidget):
 
         os.makedirs(save_dir, exist_ok=True)
         self.detector = RedCircle_Detector(meta_dir=meta_dir, save_dir=save_dir)
+        self.detector = Surface_Detector(meta_dir=meta_dir, save_dir=save_dir)
         
         # self.detector = 0 # import red circle detector for now from coral_spawn_counter
         # TODO moving bars for detection parameters
@@ -1235,8 +1236,8 @@ class picTab(QWidget):
         os.makedirs(img_save_dir, exist_ok=True)
         os.makedirs(txt_save_dir, exist_ok=True)
 
-        self.detector.save_image_predictions(pred, self.image, self.image_name, img_save_dir, self.detector.class_colours, self.detector.classes)
-        self.detector.save_text_predictions(pred, self.image_name, txt_save_dir, self.detector.classes)
+        self.detector.save_image_predictions(pred, self.image, self.image_name, img_save_dir)
+        self.detector.save_text_predictions(pred, self.image_name, txt_save_dir)
 
         print('count complete')
         self.count_button.setEnabled(True)

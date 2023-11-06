@@ -1061,8 +1061,14 @@ class picTab(QWidget):
         save_dir = '/home/cslics04/images/desktop_output'
 
         os.makedirs(save_dir, exist_ok=True)
-        self.detector = RedCircle_Detector(meta_dir=meta_dir, save_dir=save_dir)
-        self.detector = Surface_Detector(meta_dir=meta_dir, save_dir=save_dir)
+        self.detector = SubSurface_Detector(meta_dir=meta_dir,
+                                            save_dir = save_dir,
+                                            save_prelim_img=True)
+        
+        # self.detector = RedCircle_Detector(meta_dir=meta_dir, 
+        #                                    save_dir=save_dir,
+        #                                    save_prelim_img=True)
+        # self.detector = Surface_Detector(meta_dir=meta_dir, save_dir=save_dir)
         
         # self.detector = 0 # import red circle detector for now from coral_spawn_counter
         # TODO moving bars for detection parameters

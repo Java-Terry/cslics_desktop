@@ -11,5 +11,5 @@ import machinevisiontoolbox as mvt
 from machinevisiontoolbox.Image import Image as MvtImage
 import matplotlib.pyplot as plt
 
-weights = 
+weights = 'l'
 

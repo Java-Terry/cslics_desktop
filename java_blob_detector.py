@@ -27,7 +27,7 @@ from machinevisiontoolbox.Image import Image as MvtImage
 import matplotlib.pyplot as plt
 
 
-MAX_COUNT = 1000
+MAX_COUNT = 90
 img_dir = '/home/java/Java/data/cslics_desktop_data/202311_Nov_cslics_desktop_sample_images'
 label_dir = '/home/java/Java/data/cslics_desktop_data/202311_Nov_cslics_desktop_sample_images/labels'
 save_dir = '/home/java/Java/data/cslics_desktop_data/20311_nov_output'
@@ -351,8 +351,21 @@ def main():
         # import code
         # code.interact(local=dict(globals(), **locals()))
     print("------------   TOTAL COUNTS:   ---------------")
+    colour_acc_list = []
+    adv_acc_list = []
+    global_acc_list = []
+    dorian_acc_list = []
     for counts in count_list:
-        print(f'img {counts[0]}: blob counts: {counts[1]}, {counts[2]}, {counts[3]}, {counts[4]}, larvae count: {counts[4]}')
+        print(f'img {counts[0]}: blob counts: {counts[1]}, {counts[2]}, {counts[3]}, {counts[4]}, larvae count: {counts[5]}')
+        colour_acc_list.append(abs(counts[1]-counts[5])/counts[5])
+        adv_acc_list.append(abs(counts[2]-counts[5])/counts[5])
+        global_acc_list.append(abs(counts[3]-counts[5])/counts[5])
+        dorian_acc_list.append(abs(counts[4]-counts[5])/counts[5])
+    print('------------   Evaluation ----------------------')
+    print(f'average colour accuracy: {1-(sum(colour_acc_list)/len(colour_acc_list))}')
+    print(f'average advanced accuracy: {1-(sum(adv_acc_list)/len(adv_acc_list))}')
+    print(f'average global accuracy: {1-(sum(global_acc_list)/len(global_acc_list))}')
+    print(f'average dorian accuracy: {1-(sum(dorian_acc_list)/len(dorian_acc_list))}')
 
 if __name__ == "__main__":
     main()

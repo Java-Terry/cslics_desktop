@@ -10,17 +10,19 @@ import math
 from ultralytics import YOLO
 
 class YOLOEvaluator:
-    def __init__(self, weights_file, img_dir, imgsave_dir, label_dir, meta_dir, results_save_loc=None, max_no=1000):
+    def __init__(self, weights_file, img_dir, imgsave_dir, label_dir, meta_dir, results_file_name=None, results_save_loc=None, max_no=1000):
         self.weights_file = weights_file
         self.img_dir = img_dir
         self.imgsave_dir = imgsave_dir
         self.label_dir = label_dir
         self.meta_dir = meta_dir
         self.max_no = max_no
+        self.results_file_name = results_file_name if results_file_name is not None else 'results'
         self.results_save_loc = results_save_loc if results_save_loc is not None else imgsave_dir
         self.classes, self.class_colours = self.load_classes_and_colours()
         self.model = YOLO(weights_file)
         self.img_list = sorted(glob.glob(os.path.join(img_dir, '*.jpg')))
+        os.makedirs(imgsave_dir, exist_ok=True)
 
     def load_classes_and_colours(self):
         with open(os.path.join(self.meta_dir, 'metadata','obj.names'), 'r') as f:
@@ -200,9 +202,9 @@ class YOLOEvaluator:
 
     def compare_predictions_with_labels(self, predictions, labels, num_classes, IOU_THRESHOLD=0.5):
         """Compare predicted results with labeled results for each class."""
-        class_TP = {class_label: 0 for class_label in range(1, num_classes + 1)}
-        class_FP = {class_label: 0 for class_label in range(1, num_classes + 1)}
-        class_FN = {class_label: 0 for class_label in range(1, num_classes + 1)}
+        class_TP = {class_label: 0 for class_label in range(0, num_classes)}
+        class_FP = {class_label: 0 for class_label in range(0, num_classes)}
+        class_FN = {class_label: 0 for class_label in range(0, num_classes)}
         unmatched_predictions = predictions[:] 
         for label in labels:
             x1_label, y1_label, x2_label, y2_label, class_number_label = label
@@ -244,6 +246,50 @@ class YOLOEvaluator:
         predictions = pred
         return predictions
 
+    def print_final_stats(self, total_TP, total_FP, total_FN, classstat):
+        """Print the final stats."""
+        total_precision = total_TP/(total_TP + total_FP)
+        total_recall = total_TP/(total_TP + total_FN)
+        print(f"Total Stats: TP: {total_TP}, FP: {total_FP}, FN: {total_FN}, Precision: {total_precision:.2f}, Recall: {total_recall:.2f}")
+        print('Class Stats:')
+        for class_label in classstat.keys():
+            class_TP = classstat[class_label]['TP']
+            class_FP = classstat[class_label]['FP']
+            class_FN = classstat[class_label]['FN']
+            if class_TP + class_FP == 0:
+                class_precision = 0
+            else:
+                class_precision = class_TP / (class_TP + class_FP)
+            if class_TP + class_FN == 0:
+                class_recall = 0
+            else:
+                class_recall = class_TP / (class_TP + class_FN)
+            print(f"{self.classes[class_label]}: TP: {class_TP}, FP: {class_FP}, FN: {class_FN}, Precision: {class_precision:.2f}, Recall: {class_recall:.2f}")
+        
+    def update_counts(self, total_TP, total_FP, total_FN, class_TP, class_FP, class_FN, classstat, show=False):
+        """Update the counts and if show=true, shows img stats."""
+        total_TP += sum(class_TP.values())
+        total_FP += sum(class_FP.values())
+        total_FN += sum(class_FN.values())
+        img_TP = int(sum(class_TP.values()))
+        img_FP = int(sum(class_FP.values()))
+        img_FN = int(sum(class_FN.values()))
+        if img_TP + img_FP == 0:
+            img_precision = 0
+        else:
+            img_precision = img_TP / (img_TP + img_FP)
+        if img_TP + img_FN == 0:
+            img_recall = 0
+        else:
+            img_recall = img_TP / (img_TP + img_FN)
+        for class_label in classstat.keys():
+            classstat[class_label]['TP'] += class_TP.get(class_label, 0)
+            classstat[class_label]['FP'] += class_FP.get(class_label, 0)
+            classstat[class_label]['FN'] += class_FN.get(class_label, 0)
+        if show:
+            print(f"Img Stats: TP: {img_TP}, FP: {img_FP}, FN: {img_FN}, Precision: {img_precision:.2f}, Recall: {img_recall:.2f}")
+        return total_TP, total_FP, total_FN, classstat
+
     def save_results_to_file(self, file_name, total_TP, total_FP, total_FN, classstat):
         """Save the results to a file."""
         file_name = os.path.join(self.results_save_loc, file_name + '.txt')
@@ -268,7 +314,7 @@ class YOLOEvaluator:
     def run(self):
         total_FP = total_TP = total_FN = total_precision = total_recall = 0
         num_classes = len(self.classes)
-        classstat = {class_label: {'TP': 0, 'FP': 0, 'FN': 0} for class_label in range(1, num_classes + 1)}
+        classstat = {class_label: {'TP': 0, 'FP': 0, 'FN': 0} for class_label in range(0, num_classes)}
         for i, img_name in enumerate(self.img_list):
             if i >= self.max_no:
                 break
@@ -292,51 +338,25 @@ class YOLOEvaluator:
             a = self.count_by_prediction(predictions)
             b = self.get_label_counts(img_name_base, label_dir, show_counts=True)
             class_TP, class_FP, class_FN = self.compare_predictions_with_labels(predictions, bb_larvae_count, num_classes)
-
-            total_TP += sum(class_TP.values())
-            total_FP += sum(class_FP.values())
-            total_FN += sum(class_FN.values())
-            img_TP = sum(class_TP.values())
-            img_FP = sum(class_FP.values())
-            img_FN = sum(class_FN.values())
-            print(f"Img Stats: TP: {img_TP}, FP: {img_FP}, FN: {img_FN}, Precision: {img_TP/(img_TP + img_FP):.2f}, Recall: {img_TP/(img_TP + img_FN):.2f}")
-            for class_label in classstat.keys():
-                classstat[class_label]['TP'] += class_TP.get(class_label, 0)
-                classstat[class_label]['FP'] += class_FP.get(class_label, 0)
-                classstat[class_label]['FN'] += class_FN.get(class_label, 0)
-
-        total_precision = total_TP/(total_TP + total_FP)
-        total_recall = total_TP/(total_TP + total_FN)
-        print(f"Total Stats: TP: {total_TP}, FP: {total_FP}, FN: {total_FN}, Precision: {total_precision:.2f}, Recall: {total_recall:.2f}")
-        print('Class Stats:')
-        for class_label in classstat.keys():
-            class_TP = classstat[class_label]['TP']
-            class_FP = classstat[class_label]['FP']
-            class_FN = classstat[class_label]['FN']
-            if class_TP + class_FP == 0:
-                class_precision = 0
-            else:
-                class_precision = class_TP / (class_TP + class_FP)
-            if class_TP + class_FN == 0:
-                class_recall = 0
-            else:
-                class_recall = class_TP / (class_TP + class_FN)
-            print(f"Class {class_label}: TP: {class_TP}, FP: {class_FP}, FN: {class_FN}, Precision: {class_precision:.2f}, Recall: {class_recall:.2f}")
-        self.save_results_to_file('results', total_TP, total_FP, total_FN, classstat)        
+            total_TP, total_FP, total_FN, classstat = self.update_counts(total_TP, total_FP, total_FN, class_TP, class_FP, class_FN, classstat, )
+            
+        self.print_final_stats(total_TP, total_FP, total_FN, classstat)
+        self.save_results_to_file(self.results_file_name, total_TP, total_FP, total_FN, classstat)        
         # import code
         # code.interact(local=dict(globals(), **locals()))
         print('Done')
 
 if __name__ == '__main__':
     #weights_file = '/home/java/Java/ultralytics/runs/detect/train - alor_atem_1000/weights/best.pt'
-    weights_file = '/home/java/Java/ultralytics/runs/detect/cslics_dektop_1000_cslics/weights/best.pt'
-    img_dir = '/home/java/Java/data/cslics_desktop_data/202311_Nov_cslics_desktop_sample_images/images'
-    imgsave_dir = '/home/java/Java/data/cslics_desktop_data/202311_Nov_cslics_desktop_sample_images/detect'
-    label_dir = '/home/java/Java/data/cslics_desktop_data/202311_Nov_cslics_desktop_sample_images/labels'
+    weights_file = '/home/java/Java/ultralytics/runs/detect/cslics_desktop_2000_cslics/weights/best.pt'
+    label_dir = '/home/java/Java/data/cslics_desktop_data/labels/test'
+    img_dir = '/home/java/Java/data/cslics_desktop_data/images/test'
+    imgsave_dir = '/home/java/Java/data/cslics_desktop_data/test/detections/cslics_desktop_2000_cslics'
+    results_file_name = "cslics_desktop_2000_cslics"
     meta_dir = '/home/java/Java/cslics'
-    max_no = 4
+    max_no = 60
     model = YOLO(weights_file)
-    evaluator = YOLOEvaluator(weights_file, img_dir, imgsave_dir, label_dir, meta_dir, None, max_no)
+    evaluator = YOLOEvaluator(weights_file, img_dir, imgsave_dir, label_dir, meta_dir, results_file_name, None, max_no)
     evaluator.run()
 
 
